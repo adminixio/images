@@ -1,14 +1,26 @@
-#!/bin/bash
+!/bin/bash
+#ADMINIX_CONFIG_PATH=$HOME/.config/adminix
+#ADMINIX_SCRIPTS_PATH=$ADMINIX_CONFIG_PATH/scripts
+#ADMINIX_BIN=$HOME/.rvm/wrappers/adminix/adminix
+#RVM_PATH=$HOME/.rvm/scripts/rvm
+#APP_PATH=$HOME/application/current
 
-ADMINIX_CONFIG_PATH=$HOME/.config/adminix
-ADMINIX_SCRIPTS_PATH=$ADMINIX_CONFIG_PATH/scripts
-ADMINIX_BIN=$HOME/.rvm/wrappers/adminix/adminix
-RVM_PATH=$HOME/.rvm/scripts/rvm
-APP_PATH=$HOME/application/current
+ADMINIX_CONFIG_PATH=/home/ubuntu/.config/adminix
+ADMINIX_SCRIPTS_PATH=/home/ubuntu/scripts
+ADMINIX_BIN=/home/ubuntu/.rvm/wrappers/adminix/adminix
+RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
+APP_PATH=/home/ubuntu/application/current
 
 function setup_rvm() {
   gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
   curl -sSL https://get.rvm.io | bash -s stable
+}
+
+function setup_adminix_wrapper() {
+  rvm install $1
+  rvm gemset create adminix
+  gem install bundler adminix
+  rvm wrapper $1@adminix adminix adminix
 }
 
 function define_adminix_config() {
@@ -33,45 +45,36 @@ function define_adminix_config() {
 }
 EOT
 }
-
 function define_adminix_scripts() {
   cat << EOT > $ADMINIX_SCRIPTS_PATH/reset_app
 #!/bin/bash
-
 sudo systemctl stop adminix.service
 sudo systemctl stop adminix_process.service
 rm ~/.config/adminix/credentials
-
 sudo systemctl start adminix.service
 EOT
 
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_watcher
 #!/bin/bash
-
 source "${RVM_PATH}"
 ${ADMINIX_BIN} watch
 EOT
 
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_script
 #!/bin/bash
-
 # Basic settings
 CURRENT_PATH=${APP_PATH}
-
 # We need to source rvm and ruby
 echo 'Setting up Ruby...'
 source "${RVM_PATH}"
 rvm use default
 gem install bundler
-
 # Sourcing all remote env variables
 echo 'Syncing remote environment variables...'
 eval $(${ADMINIX_BIN} env)
-
 # We need to be inside our application
 echo 'Changing path...'
 cd $CURRENT_PATH
-
 # Running our remote script
 echo 'Running remote script...'
 echo ''
@@ -80,52 +83,42 @@ EOT
 
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_app
 #!/bin/bash
-
 # Basic settings
 CURRENT_PATH=/home/ubuntu/application/current
 TEMP_PATH=/home/ubuntu/application/tmp
 LEGACY_PATH=/home/ubuntu/application/legacy
-
 # We need to source rvm and ruby
 source "${RVM_PATH}"
-
 # We need to use system wide adminix
+rvm gemset create adminix
 rvm use 2.5.0@adminix
 gem install adminix
 rvm use default
 gem install bundler
-
 # Sourcing all remote env variables
 eval $(${ADMINIX_BIN} env)
-
 function git_clone() {
   rm -rf $TEMP_PATH
   git clone -b \${GIT_BRANCH:-master} $GIT_REPO $TEMP_PATH
 }
-
 function stop_watcher() {
   sudo systemctl stop adminix.service
 }
-
 function start_watcher() {
   sudo systemctl start adminix.service
 }
-
 function setup_app() {
   cd $TEMP_PATH
   bundle install
   bundle exec rails assets:precompile
 }
-
 function release_app() {
   rm -rf $LEGACY_PATH
   mv $CURRENT_PATH $LEGACY_PATH
   mv $TEMP_PATH $CURRENT_PATH
 }
-
 function launch_app() {
   cd $CURRENT_PATH
-
   file=bin/adminix_run
   if [ -f "$file" ]; then
     chmod a+x bin/adminix_run
@@ -140,7 +133,6 @@ function launch_app() {
     fi
   fi
 }
-
 if [ -f "/home/ubuntu/.config/adminix/credentials" ]; then
   git_clone
   setup_app
@@ -155,11 +147,11 @@ EOT
 }
 
 function define_adminix_systemd() {
-  cat <<EOT > /etc/systemd/system/adminix.service
+
+sudo bash -c 'cat << EOT > /etc/systemd/system/adminix.service
 [Unit]                                                                                                                                                                                                                                                      [0/2073]
 Description=Adminix
 Requires=network.target
-
 [Service]
 Type=simple
 User=ubuntu
@@ -175,20 +167,19 @@ SyslogIdentifier=%n
 KillMode=mixed
 TimeoutStopSec=5
 TimeoutSec=300
-
 [Install]
 WantedBy=multi-user.target
-EOT
-  sudo systemctl --system daemon-reload
-  sudo systemctl enable adminix.service
+EOT'
+   sudo systemctl --system daemon-reload
+   sudo systemctl enable adminix.service
 }
 
 function define_adminix_process_systemd() {
-  cat << EOT > /etc/systemd/system/adminix_process.service
+
+sudo bash -c 'cat << EOT > /etc/systemd/system/adminix_process.service
 [Unit]
 Description=Adminix Process
 Requires=network.target
-
 [Service]
 Type=simple
 User=ubuntu
@@ -204,16 +195,16 @@ SyslogIdentifier=%n
 KillMode=mixed
 TimeoutStopSec=5
 TimeoutSec=300
-
 [Install]
 WantedBy=multi-user.target
-EOT
+EOT'
   sudo systemctl --system daemon-reload
   sudo systemctl enable adminix_process.service
 }
 
-setup_rvm
-define_adminix_config
-define_adminix_scripts
+#setup_rvm
+setup_ruby 2.5.0
+ #define_adminix_config
+#define_adminix_scripts
 define_adminix_systemd
 define_adminix_process_systemd
