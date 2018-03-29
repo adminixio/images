@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 #ADMINIX_CONFIG_PATH=$HOME/.config/adminix
 #ADMINIX_SCRIPTS_PATH=$ADMINIX_CONFIG_PATH/scripts
 #ADMINIX_BIN=$HOME/.rvm/wrappers/adminix/adminix
@@ -6,8 +6,8 @@
 #APP_PATH=$HOME/application/current
 
 ADMINIX_CONFIG_PATH=/home/ubuntu/.config/adminix
-ADMINIX_SCRIPTS_PATH=/home/ubuntu/scripts
-ADMINIX_BIN=/home/ubuntu/.rvm/wrappers/adminix/adminix
+ADMINIX_SCRIPTS_PATH=/home/ubuntu/.config/adminix/scripts
+ADMINIX_BIN=/home/ubuntu/.rvm/wrappers/ruby-2.5.0@adminix
 RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
 APP_PATH=/home/ubuntu/application/current
 
@@ -16,11 +16,35 @@ function setup_rvm() {
   curl -sSL https://get.rvm.io | bash -s stable
 }
 
+function install_ruby() {
+  source "${RVM_PATH}"
+  echo "gem: \"--no-ri --no-rdoc\"" /home/ubuntu/.gemrc
+  rvm install 2.5.1
+  rvm install 2.4.4
+  rvm install 2.3.7
+  rvm install 2.1.10
+}
+
 function setup_adminix_wrapper() {
+  source "${RVM_PATH}"
+  echo "gem: \"--no-ri --no-rdoc\"" /home/ubuntu/.gemrc
   rvm install $1
   rvm gemset create adminix
   gem install bundler adminix
-  rvm wrapper $1@adminix adminix adminix
+  rvm wrapper $1@adminix adminix
+}
+
+function install_certbot() {
+  sudo apt-get update
+  sudo apt-get --assume-yes install software-properties-common
+  sudo add-apt-repository -y  ppa:certbot/certbot
+  sudo apt-get update
+  sudo apt-get --assume-yes install python-certbot-nginx
+
+}
+
+function install_libs() {
+  sudo apt-get --assume-yes install git imagemagick phantomjs libpq-dev nginx
 }
 
 function define_adminix_config() {
@@ -45,6 +69,7 @@ function define_adminix_config() {
 }
 EOT
 }
+
 function define_adminix_scripts() {
   cat << EOT > $ADMINIX_SCRIPTS_PATH/reset_app
 #!/bin/bash
@@ -54,11 +79,22 @@ rm ~/.config/adminix/credentials
 sudo systemctl start adminix.service
 EOT
 
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/reset_app
+
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_watcher
 #!/bin/bash
 source "${RVM_PATH}"
 ${ADMINIX_BIN} watch
 EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_watcher
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/split_domains
+#!/usr/bin/env ruby
+puts ARGV[0].split(' ').join(',')
+EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/split_domains
 
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_script
 #!/bin/bash
@@ -80,6 +116,8 @@ echo 'Running remote script...'
 echo ''
 $@
 EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_script
 
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_app
 #!/bin/bash
@@ -144,6 +182,8 @@ else
   sleep 30
 fi
 EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_app
 }
 
 function define_adminix_systemd() {
@@ -202,9 +242,12 @@ EOT'
   sudo systemctl enable adminix_process.service
 }
 
-#setup_rvm
-setup_ruby 2.5.0
- #define_adminix_config
-#define_adminix_scripts
+setup_rvm
+install_ruby
+install_libs
+install_certbot
+setup_adminix_wrapper 2.5.0
+define_adminix_config
+define_adminix_scripts
 define_adminix_systemd
 define_adminix_process_systemd
