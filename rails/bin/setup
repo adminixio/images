@@ -53,18 +53,18 @@ function define_adminix_config() {
   cat << EOT > $ADMINIX_CONFIG_PATH/config
 {
   "mode": "classic",
-  "working_dir": "${APP_PATH}",
+  "working_dir": "\${APP_PATH}",
   "image": "rails",
   "scripts": {
     "watcher_start": "sudo systemctl start adminix.service",
     "watcher_stop": "sudo systemctl stop adminix.service",
     "process_start": "sudo systemctl start adminix_process.service",
     "process_stop": "sudo systemctl stop adminix_process.service",
-    "run_script": "${ADMINIX_SCRIPTS_PATH}/run_script"
+    "run_script": "\${ADMINIX_SCRIPTS_PATH}/run_script"
   },
   "watch_logs": [
-    "${APP_PATH}/log/production.log",
-    "${APP_PATH}/log/development.log"
+    "\${APP_PATH}/log/production.log",
+    "\${APP_PATH}/log/development.log"
   ]
 }
 EOT
@@ -83,8 +83,8 @@ sudo chmod a+x $ADMINIX_SCRIPTS_PATH/reset_app
 
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_watcher
 #!/bin/bash
-source "${RVM_PATH}"
-${ADMINIX_BIN} watch
+source "\${RVM_PATH}"
+\${ADMINIX_BIN} watch
 EOT
 
 sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_watcher
@@ -99,18 +99,18 @@ sudo chmod a+x $ADMINIX_SCRIPTS_PATH/split_domains
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_script
 #!/bin/bash
 # Basic settings
-CURRENT_PATH=${APP_PATH}
+CURRENT_PATH=\${APP_PATH}
 # We need to source rvm and ruby
 echo 'Setting up Ruby...'
-source "${RVM_PATH}"
+source "\${RVM_PATH}"
 rvm use default
 gem install bundler
 # Sourcing all remote env variables
 echo 'Syncing remote environment variables...'
-eval $(${ADMINIX_BIN} env)
+eval \$(\${ADMINIX_BIN} env)
 # We need to be inside our application
 echo 'Changing path...'
-cd $CURRENT_PATH
+cd \$CURRENT_PATH
 # Running our remote script
 echo 'Running remote script...'
 echo ''
@@ -125,19 +125,48 @@ sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_script
 CURRENT_PATH=/home/ubuntu/application/current
 TEMP_PATH=/home/ubuntu/application/tmp
 LEGACY_PATH=/home/ubuntu/application/legacy
+NGINX_CONFIG_PATH=/home/ubuntu/.config/adminix/files/default
+RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
 # We need to source rvm and ruby
-source "${RVM_PATH}"
+source "\${RVM_PATH}"
 # We need to use system wide adminix
-rvm gemset create adminix
 rvm use 2.5.0@adminix
 gem install adminix
 rvm use default
 gem install bundler
 # Sourcing all remote env variables
-eval $(${ADMINIX_BIN} env)
+eval \$(${ADMINIX_BIN} env)
 function git_clone() {
-  rm -rf $TEMP_PATH
-  git clone -b \${GIT_BRANCH:-master} $GIT_REPO $TEMP_PATH
+  rm -rf \$TEMP_PATH
+  git clone -b \${GIT_BRANCH:-master} \$GIT_REPO \$TEMP_PATH
+}
+
+function generate_config_nginx() {
+   sudo cat << EOF > \$NGINX_CONFIG_PATH
+upstream app {
+    server 0.0.0.0:\${RAILS_PORT}; }
+
+server {
+    listen 80;
+    server_name \${SERVER_NAME:-default};
+
+    root /home/ubuntu//application/curent/public;
+
+    try_files \\\$uri/index.html \\\$uri @app;
+
+    location @app {
+        proxy_pass http://app;
+        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
+        proxy_set_header Host \\\$http_host;
+        proxy_redirect off;
+    }
+
+    error_page 500 502 503 504 /500.html;
+    client_max_body_size 4G;
+    keepalive_timeout 10;
+}
+EOF
+sudo bash -c 'ln -s /home/ubuntu/.config/adminix/files/default /etc/nginx/sites-available/default'
 }
 function stop_watcher() {
   sudo systemctl stop adminix.service
@@ -146,24 +175,24 @@ function start_watcher() {
   sudo systemctl start adminix.service
 }
 function setup_app() {
-  cd $TEMP_PATH
+  cd \$TEMP_PATH
   bundle install
   bundle exec rails assets:precompile
 }
 function release_app() {
-  rm -rf $LEGACY_PATH
-  mv $CURRENT_PATH $LEGACY_PATH
-  mv $TEMP_PATH $CURRENT_PATH
+  rm -rf \$LEGACY_PATH
+  mv \$CURRENT_PATH $LEGACY_PATH
+  mv \$TEMP_PATH $CURRENT_PATH
 }
 function launch_app() {
-  cd $CURRENT_PATH
+  cd \$CURRENT_PATH
   file=bin/adminix_run
-  if [ -f "$file" ]; then
+  if [ -f "\$file" ]; then
     chmod a+x bin/adminix_run
     exec rvmsudo bin/adminix_run
   else
     file=Procfile
-    if [ -f "$file" ]; then
+    if [ -f "\$file" ]; then
       gem install foreman
       exec rvmsudo foreman start
     else
@@ -171,9 +200,25 @@ function launch_app() {
     fi
   fi
 }
+
+function restart_nginx(){
+   sudo systemctl stop nginx.service
+   sudo systemctl start nginx.service
+}
+
+function generate_certs() {
+  SSL_DOMAINS="\$(/home/ubuntu/.config/adminix/scripts/split_domains "\$SERVER_NAME")"
+  sudo certbot --nginx -d \$SSL_DOMAINS --agree-tos --expand -m \$DOMAIN_EMAIL -n
+}
+
 if [ -f "/home/ubuntu/.config/adminix/credentials" ]; then
   git_clone
   setup_app
+  generate_config_nginx
+  if [ "USE_SSL"="yes" ]; then
+    generate_certs
+  fi
+  restart_nginx
   stop_watcher
   release_app
   start_watcher
@@ -182,6 +227,7 @@ else
   sleep 30
 fi
 EOT
+ mkdir /home/ubuntu/.config/adminix/files
 
 sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_app
 }
