@@ -195,7 +195,8 @@ server {
     keepalive_timeout 10;
 }
 EOF
-sudo bash -c 'ln -s /home/ubuntu/.config/adminix/files/default /etc/nginx/sites-available/default'
+sudo rm /etc/nginx/sites-available/default 
+sudo ln -s /home/ubuntu/.config/adminix/files/default /etc/nginx/sites-available/default
 }
 function stop_watcher() {
   sudo systemctl stop adminix.service
