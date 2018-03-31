@@ -16,7 +16,7 @@ curl -L https://github.com/adminixio/images/tarball/master | tar -xz --strip-com
 
 if [ -d "$ADMINIX_IMAGES_PATH/$IMAGE_NAME/$PLATFORM" ]; then
   echo "Setting up a server..."
-  sh $ADMINIX_IMAGES_PATH/$IMAGE_NAME/${PLATFORM}/bin/setup.sh
+  sh $ADMINIX_IMAGES_PATH/$IMAGE_NAME/${PLATFORM}/bin/setup
 else
   echo "Wrong image name"
 fi
