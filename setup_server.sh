@@ -14,16 +14,16 @@ fi
 mkdir $ADMINIX_IMAGES_PATH
 curl -L https://github.com/adminixio/images/tarball/master | tar -xz --strip-components=1 -C $ADMINIX_IMAGES_PATH
 
+if [ ! -z "$SERVICE_ID" ] && [ ! -z "$SECRET_KEY" ]; then
+  echo "Generating Adminix credentials file..."
+  mkdir -p ~/.config/adminix
+  echo "{\"service_id\":\"${SERVICE_ID}\",\"secret_key\":\"${SECRET_KEY}\"}" >> ~/.config/adminix/credentials
+fi
+
 if [ -d "$ADMINIX_IMAGES_PATH/$IMAGE_NAME/$PLATFORM" ]; then
   echo "Setting up a server..."
   chmod a+x $ADMINIX_IMAGES_PATH/$IMAGE_NAME/${PLATFORM}/bin/setup
   $ADMINIX_IMAGES_PATH/$IMAGE_NAME/${PLATFORM}/bin/setup
 else
   echo "Wrong image name"
-fi
-
-if [ ! -z "$SERVICE_ID" ] && [ ! -z "$SECRET_KEY" ]; then
-  echo "Generating Adminix credentials file..."
-  mkdir -p ~/.config/adminix
-  echo "{\"service_id\":\"${SERVICE_ID}\",\"secret_key\":\"${SECRET_KEY}\"}" >> ~/.config/adminix/credentials
 fi

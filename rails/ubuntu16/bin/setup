@@ -318,6 +318,15 @@ EOT"
   sudo systemctl enable adminix_process.service
 }
 
+function create_project_structure() {
+  mkdir -p $APP_PATH
+}
+
+function start_application() {
+  sudo systemctl start adminix.server
+  sudo systemctl start adminix_process.server
+}
+
 setup_rvm
 install_ruby
 install_libs
@@ -325,5 +334,7 @@ install_certbot
 setup_adminix_wrapper 2.5.0
 define_adminix_config
 define_adminix_scripts
+create_project_structure
 define_adminix_systemd
 define_adminix_process_systemd
+start_application
