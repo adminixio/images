@@ -8,6 +8,7 @@
 ADMINIX_CONFIG_PATH=/home/ubuntu/.config/adminix
 ADMINIX_SCRIPTS_PATH=/home/ubuntu/.config/adminix/scripts
 ADMINIX_BIN=/home/ubuntu/.rvm/wrappers/ruby-2.5.0@adminix
+ADMINIX_BIN=/home/ubuntu/.rvm/gems/ruby-2.5.0@adminix/wrappers/adminix
 RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
 APP_PATH=/home/ubuntu/application/current
 
@@ -18,7 +19,7 @@ function setup_rvm() {
 
 function install_ruby() {
   source "${RVM_PATH}"
-  echo "gem: \"--no-ri --no-rdoc\"" /home/ubuntu/.gemrc
+  echo "gem: \"--no-ri --no-rdoc\"" >> /home/ubuntu/.gemrc
   rvm install 2.5.1
   rvm install 2.4.4
   rvm install 2.3.7
@@ -27,11 +28,11 @@ function install_ruby() {
 
 function setup_adminix_wrapper() {
   source "${RVM_PATH}"
-  echo "gem: \"--no-ri --no-rdoc\"" /home/ubuntu/.gemrc
+  echo "gem: \"--no-ri --no-rdoc\"" >> /home/ubuntu/.gemrc
   rvm install $1
-  rvm gemset create adminix
+  rvm use $1@adminix --create
   gem install bundler adminix
-  rvm wrapper $1@adminix adminix
+  # rvm wrapper $1@adminix adminix
 }
 
 function install_certbot() {
