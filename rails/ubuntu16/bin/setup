@@ -323,8 +323,8 @@ function create_project_structure() {
 }
 
 function start_application() {
-  sudo systemctl start adminix.server
-  sudo systemctl start adminix_process.server
+  sudo systemctl start adminix.service
+  sudo systemctl start adminix_process.service
 }
 
 setup_rvm
