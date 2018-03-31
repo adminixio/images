@@ -45,7 +45,7 @@ function install_certbot() {
 }
 
 function install_libs() {
-  sudo apt-get --assume-yes install git imagemagick phantomjs libpq-dev nginx
+  sudo apt-get --assume-yes install git imagemagick phantomjs libpq-dev nginx nodejs
 }
 
 function define_adminix_config() {
@@ -173,13 +173,14 @@ function git_clone() {
 function generate_config_nginx() {
    sudo cat << EOF > \$NGINX_CONFIG_PATH
 upstream app {
-    server 0.0.0.0:\${RAILS_PORT}; }
+    server 0.0.0.0:\${RAILS_PORT};
+}
 
 server {
     listen 80;
     server_name \${SERVER_NAME:-default};
 
-    root /home/ubuntu//application/curent/public;
+    root /home/ubuntu/application/current/public;
 
     try_files \\\$uri/index.html \\\$uri @app;
 
@@ -263,8 +264,8 @@ sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_app
 
 function define_adminix_systemd() {
 
-sudo bash -c 'cat << EOT > /etc/systemd/system/adminix.service
-[Unit]                                                                                                                                                                                                                                                      [0/2073]
+sudo bash -c "cat << EOT > /etc/systemd/system/adminix.service
+[Unit]                                                                                                                                                                                                                                      
 Description=Adminix
 Requires=network.target
 [Service]
@@ -284,14 +285,14 @@ TimeoutStopSec=5
 TimeoutSec=300
 [Install]
 WantedBy=multi-user.target
-EOT'
+EOT"
    sudo systemctl --system daemon-reload
    sudo systemctl enable adminix.service
 }
 
 function define_adminix_process_systemd() {
 
-sudo bash -c 'cat << EOT > /etc/systemd/system/adminix_process.service
+sudo bash -c "cat << EOT > /etc/systemd/system/adminix_process.service
 [Unit]
 Description=Adminix Process
 Requires=network.target
@@ -312,7 +313,7 @@ TimeoutStopSec=5
 TimeoutSec=300
 [Install]
 WantedBy=multi-user.target
-EOT'
+EOT"
   sudo systemctl --system daemon-reload
   sudo systemctl enable adminix_process.service
 }
