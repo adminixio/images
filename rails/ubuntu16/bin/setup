@@ -119,6 +119,34 @@ EOT
 
 sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_script
 
+mkdir $ADMINIX_SCRIPTS_PATH/run_scripts
+
+rm $ADMINIX_SCRIPTS_PATH/run_scripts/folders_names
+rm $ADMINIX_SCRIPTS_PATH/run_scripts/folders_scripts
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_scripts/folders_names
+#!/usr/bin/env ruby
+puts ARGV[0].split(" ").map { |s| s.to_s }.each {|x| puts "sudo ln -s /home/ubuntu/application/current/#{x} /home/ubuntu/application/shared"}
+EOT
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_scripts/folders_scripts
+#!/bin/bash
+source "/home/ubuntu/.rvm/scripts/rvm"
+
+# We need to use system wide adminix
+rvm use 2.5.0@adminix
+gem install adminix
+rvm use default
+gem install bundler
+eval \$(${ADMINIX_BIN} env)
+
+function link_folders {
+exec \$(${ADMINIX_BIN} "\$FOLDERS_NAME")
+}
+
+link_folders
+EOT
+
   cat << EOT > $ADMINIX_SCRIPTS_PATH/run_app
 #!/bin/bash
 # Basic settings
