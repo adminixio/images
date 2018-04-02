@@ -1,7 +1,13 @@
 #!/bin/bash
+#ADMINIX_CONFIG_PATH=$HOME/.config/adminix
+#ADMINIX_SCRIPTS_PATH=$ADMINIX_CONFIG_PATH/scripts
+#ADMINIX_BIN=$HOME/.rvm/wrappers/adminix/adminix
+#RVM_PATH=$HOME/.rvm/scripts/rvm
+#APP_PATH=$HOME/application/current
 
 ADMINIX_CONFIG_PATH=/home/ubuntu/.config/adminix
 ADMINIX_SCRIPTS_PATH=/home/ubuntu/.config/adminix/scripts
+# ADMINIX_BIN=/home/ubuntu/.rvm/wrappers/ruby-2.5.0@adminix
 ADMINIX_BIN=/home/ubuntu/.rvm/gems/ruby-2.5.0@adminix/wrappers/adminix
 RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
 APP_PATH=/home/ubuntu/application/current
@@ -9,7 +15,15 @@ APP_PATH=/home/ubuntu/application/current
 function setup_rvm() {
   gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
   curl -sSL https://get.rvm.io | bash -s stable
+}
 
+function install_ruby() {
+  source "${RVM_PATH}"
+  echo "gem: \"--no-ri --no-rdoc\"" >> /home/ubuntu/.gemrc
+  rvm install 2.5.1
+  rvm install 2.4.4
+  rvm install 2.3.7
+  rvm install 2.1.10
 }
 
 function setup_adminix_wrapper() {
@@ -19,21 +33,6 @@ function setup_adminix_wrapper() {
   rvm use $1@adminix --create
   gem install bundler adminix
   # rvm wrapper $1@adminix adminix
-}
-function nvm_install() {
-  curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.8/install.sh | bash
-  source ~/.nvm/nvm.sh
-  source ~/.profile
-  source ~/.bashrc
-  nvm install 8.9.4
-  nvm install 6.9.4
-  nvm install 4.8.4
-}
-
-function yarn_install() {
- curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
- echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
- sudo apt-get install --no-install-recommends yarn
 }
 
 function install_certbot() {
@@ -45,7 +44,7 @@ function install_certbot() {
 }
 
 function install_libs() {
-  sudo apt-get --assume-yes install git imagemagick phantomjs libpq-dev nginx
+  sudo apt-get --assume-yes install git imagemagick phantomjs libpq-dev nginx nodejs
 }
 
 function define_adminix_config() {
@@ -55,7 +54,7 @@ function define_adminix_config() {
 {
   "mode": "classic",
   "working_dir": "${APP_PATH}",
-  "image": "nodejs",
+  "image": "rails",
   "scripts": {
     "watcher_start": "sudo systemctl start adminix.service",
     "watcher_stop": "sudo systemctl stop adminix.service",
@@ -155,8 +154,6 @@ CURRENT_PATH=/home/ubuntu/application/current
 TEMP_PATH=/home/ubuntu/application/tmp
 LEGACY_PATH=/home/ubuntu/application/legacy
 NGINX_CONFIG_PATH=/home/ubuntu/.config/adminix/files/default
-YARN_PATH=/usr/bin/yarn
-LOG_PATH=/home/ubuntu/.config/adminix/files/app.log
 RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
 # We need to source rvm and ruby
 source "${RVM_PATH}"
@@ -174,29 +171,28 @@ function git_clone() {
 
 function generate_config_nginx() {
    sudo cat << EOF > \$NGINX_CONFIG_PATH
-upstream my_nodejs_upstream {
-    server 0.0.0.0:\${PORT};
+upstream app {
+    server 0.0.0.0:\${RAILS_PORT};
 }
 
 server {
     listen 80;
     server_name \${SERVER_NAME:-default};
 
-    root /home/ubuntu/application/current;
+    root /home/ubuntu/application/current/public;
 
-    location / {
+    try_files \\\$uri/index.html \\\$uri @app;
+
+    location @app {
         proxy_pass http://app;
         proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
         proxy_set_header Host \\\$http_host;
-        proxy_set_header X-NginX-Proxy true;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \\\$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_max_temp_file_size 0;
-        proxy_pass http://my_nodejs_upstream/;
         proxy_redirect off;
-        proxy_read_timeout 240s;
-        }
+    }
+
+    error_page 500 502 503 504 /500.html;
+    client_max_body_size 4G;
+    keepalive_timeout 10;
 }
 EOF
 sudo rm /etc/nginx/sites-available/default
@@ -210,7 +206,8 @@ function start_watcher() {
 }
 function setup_app() {
   cd \$TEMP_PATH
-  $YARN_PATH install
+  bundle install
+  bundle exec rails assets:precompile
 }
 function release_app() {
   rm -rf \$LEGACY_PATH
@@ -218,8 +215,20 @@ function release_app() {
   mv \$TEMP_PATH \$CURRENT_PATH
 }
 function launch_app() {
-  cd $CURRENT_PATH
-  exec node $NODE_ENTRYPOINT >> $LOG_PATH
+  cd \$CURRENT_PATH
+  file=bin/adminix_run
+  if [ -f "\$file" ]; then
+    chmod a+x bin/adminix_run
+    exec bin/adminix_run
+  else
+    file=Procfile
+    if [ -f "\$file" ]; then
+      gem install foreman
+      exec foreman start
+    else
+      exec bundle exec rails s -b 0.0.0.0 -p \${RAILS_PORT:-80}
+    fi
+  fi
 }
 
 function restart_nginx(){
@@ -318,8 +327,7 @@ function start_application() {
 }
 
 setup_rvm
-nvm_install
-yarn_install
+install_ruby
 install_libs
 install_certbot
 setup_adminix_wrapper 2.5.0
