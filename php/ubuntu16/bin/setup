@@ -1,0 +1,291 @@
+#!/bin/bash
+
+ADMINIX_CONFIG_PATH=/home/ubuntu/.config/adminix
+ADMINIX_SCRIPTS_PATH=/home/ubuntu/.config/adminix/scripts
+ADMINIX_BIN=/home/ubuntu/.rvm/gems/ruby-2.5.0@adminix/wrappers/adminix
+RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
+APP_PATH=/home/ubuntu/application/current
+
+function setup_rvm() {
+  gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+  curl -sSL https://get.rvm.io | bash -s stable
+
+}
+
+function setup_adminix_wrapper() {
+  source "${RVM_PATH}"
+  echo "gem: \"--no-ri --no-rdoc\"" >> /home/ubuntu/.gemrc
+  rvm install $1
+  rvm use $1@adminix --create
+  gem install bundler adminix
+  # rvm wrapper $1@adminix adminix
+}
+
+function install_software() {
+  sudo apt-get update
+  sudo apt-get --assume-yes install apache2
+  sudo apache2ctl configtest
+  sudo systemctl restart apache2
+  sudo -E apt-get -q -y  install mysql-server
+  sudo apt-get --assume-yes install php libapache2-mod-php php-mcrypt php-mysql
+  sudo apt-get --assume-yes install git imagemagick phantomjs libpq-dev nginx
+  sudo systemctl restart apache2
+}
+
+function install_certbot() {
+  sudo apt-get update
+  sudo apt-get --assume-yes install software-properties-common
+  sudo add-apt-repository -y  ppa:certbot/certbot
+  sudo apt-get update
+  sudo apt-get --assume-yes install python-certbot-nginx
+}
+
+function define_adminix_config() {
+  mkdir -p $ADMINIX_CONFIG_PATH
+  mkdir -p $ADMINIX_SCRIPTS_PATH
+  cat << EOT > $ADMINIX_CONFIG_PATH/config
+{
+  "mode": "classic",
+  "working_dir": "${APP_PATH}",
+  "image": "php",
+  "scripts": {
+    "watcher_start": "sudo systemctl start adminix.service",
+    "watcher_stop": "sudo systemctl stop adminix.service",
+    "process_start": "sudo systemctl start adminix_process.service",
+    "process_stop": "sudo systemctl stop adminix_process.service",
+    "run_script": "${ADMINIX_SCRIPTS_PATH}/run_script"
+  },
+  "watch_logs": [
+    "${APP_PATH}/log/production.log",
+    "${APP_PATH}/log/development.log"
+  ]
+}
+EOT
+}
+
+function define_adminix_scripts() {
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/reset_app
+#!/bin/bash
+sudo systemctl stop adminix.service
+sudo systemctl stop adminix_process.service
+rm ~/.config/adminix/credentials
+sudo systemctl start adminix.service
+EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/reset_app
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_watcher
+#!/bin/bash
+source "${RVM_PATH}"
+${ADMINIX_BIN} watch
+EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_watcher
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/split_domains
+#!/usr/bin/env ruby
+puts ARGV[0].split(' ').join(',')
+EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/split_domains
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_script
+#!/bin/bash
+# Basic settings
+CURRENT_PATH=${APP_PATH}
+# We need to source rvm and ruby
+echo 'Setting up Ruby...'
+source "${RVM_PATH}"
+rvm use default
+gem install bundler
+# Sourcing all remote env variables
+echo 'Syncing remote environment variables...'
+eval \$(${ADMINIX_BIN} env)
+# We need to be inside our application
+echo 'Changing path...'
+cd \$CURRENT_PATH
+# Running our remote script
+echo 'Running remote script...'
+echo ''
+\$@
+EOT
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_script
+
+mkdir $ADMINIX_SCRIPTS_PATH/run_scripts
+
+rm $ADMINIX_SCRIPTS_PATH/run_scripts/folders_names
+rm $ADMINIX_SCRIPTS_PATH/run_scripts/folders_scripts
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_scripts/folders_names
+#!/usr/bin/env ruby
+puts ARGV[0].split(" ").map { |s| s.to_s }.each {|x| puts "sudo ln -s /home/ubuntu/application/current/#{x} /home/ubuntu/application/shared"}
+EOT
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_scripts/folders_scripts
+#!/bin/bash
+source "/home/ubuntu/.rvm/scripts/rvm"
+
+# We need to use system wide adminix
+rvm use 2.5.0@adminix
+gem install adminix
+rvm use default
+gem install bundler
+eval \$(${ADMINIX_BIN} env)
+
+function link_folders {
+exec \$(${ADMINIX_BIN} "\$FOLDERS_NAME")
+}
+
+link_folders
+EOT
+
+  cat << EOT > $ADMINIX_SCRIPTS_PATH/run_app
+#!/bin/bash
+# Basic settings
+CURRENT_PATH=/home/ubuntu/application/current
+TEMP_PATH=/home/ubuntu/application/tmp
+LEGACY_PATH=/home/ubuntu/application/legacy
+NGINX_CONFIG_PATH=/home/ubuntu/.config/adminix/files/default
+YARN_PATH=/usr/bin/yarn
+LOG_PATH=/home/ubuntu/.config/adminix/files/app.log
+RVM_PATH=/home/ubuntu/.rvm/scripts/rvm
+# We need to source rvm and ruby
+source "${RVM_PATH}"
+# We need to use system wide adminix
+rvm use 2.5.0@adminix
+gem install adminix
+export NVM_DIR="/home/ubuntu/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 8.9.4
+# Sourcing all remote env variables
+eval \$(${ADMINIX_BIN} env)
+function git_clone() {
+  rm -rf \$TEMP_PATH
+  git clone -b \${GIT_BRANCH:-master} \$GIT_REPO \$TEMP_PATH
+}
+
+#sudo rm /etc/nginx/sites-available/default
+#sudo ln -s /home/ubuntu/.config/adminix/files/default /etc/nginx/sites-available/default
+}
+function stop_watcher() {
+  sudo systemctl stop adminix.service
+}
+function start_watcher() {
+  sudo systemctl start adminix.service
+}
+function setup_app() {
+  cd \$TEMP_PATH
+  $YARN_PATH install
+}
+function release_app() {
+  rm -rf \$LEGACY_PATH
+  mv \$CURRENT_PATH \$LEGACY_PATH
+  mv \$TEMP_PATH \$CURRENT_PATH
+}
+
+function restart_apache(){
+   sudo systemctl stop apache2.service
+   sudo systemctl start apache2.service
+}
+
+function generate_certs() {
+  SSL_DOMAINS="\$(/home/ubuntu/.config/adminix/scripts/split_domains "\$SERVER_NAME")"
+  sudo certbot --nginx -d \$SSL_DOMAINS --agree-tos --expand -m \$DOMAIN_EMAIL -n
+}
+
+if [ -f "/home/ubuntu/.config/adminix/credentials" ]; then
+  git_clone
+  setup_app
+  generate_config_nginx
+  if [ "USE_SSL"="yes" ]; then
+    generate_certs
+  fi
+  restart_apache
+  stop_watcher
+  release_app
+  start_watcher
+  launch_app
+else
+  sleep 30
+fi
+EOT
+ mkdir /home/ubuntu/.config/adminix/files
+
+sudo chmod a+x $ADMINIX_SCRIPTS_PATH/run_app
+}
+
+function define_adminix_systemd() {
+
+sudo bash -c "cat << EOT > /etc/systemd/system/adminix.service
+[Unit]
+Description=Adminix
+Requires=network.target
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=${APP_PATH}
+ExecStart=${ADMINIX_SCRIPTS_PATH}/run_watcher
+Restart=always
+RestartSec=5
+StandardInput=null
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=%n
+KillMode=mixed
+TimeoutStopSec=5
+TimeoutSec=300
+[Install]
+WantedBy=multi-user.target
+EOT"
+   sudo systemctl --system daemon-reload
+   sudo systemctl enable adminix.service
+}
+
+function define_adminix_process_systemd() {
+
+sudo bash -c "cat << EOT > /etc/systemd/system/adminix_process.service
+[Unit]
+Description=Adminix Process
+Requires=network.target
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=${APP_PATH}
+ExecStart=${ADMINIX_SCRIPTS_PATH}/run_app
+Restart=always
+RestartSec=5
+StandardInput=null
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=%n
+KillMode=mixed
+TimeoutStopSec=5
+TimeoutSec=300
+[Install]
+WantedBy=multi-user.target
+EOT"
+  sudo systemctl --system daemon-reload
+  sudo systemctl enable adminix_process.service
+}
+
+function create_project_structure() {
+  mkdir -p $APP_PATH
+}
+
+function start_application() {
+  sudo systemctl start adminix_process.service
+}
+
+setup_rvm
+install_software
+install_certbot
+setup_adminix_wrapper 2.5.0
+define_adminix_config
+define_adminix_scripts
+create_project_structure
+define_adminix_systemd
+define_adminix_process_systemd
+start_application
