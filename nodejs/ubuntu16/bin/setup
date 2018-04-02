@@ -163,8 +163,9 @@ source "${RVM_PATH}"
 # We need to use system wide adminix
 rvm use 2.5.0@adminix
 gem install adminix
-rvm use default
-gem install bundler
+export NVM_DIR="/home/ubuntu/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 8.9.4
 # Sourcing all remote env variables
 eval \$(${ADMINIX_BIN} env)
 function git_clone() {
