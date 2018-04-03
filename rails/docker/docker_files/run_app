@@ -1,12 +1,12 @@
 #!/bin/bash
 
-function run_watcher () {
-  rm /tmp/adminix.pid
-  adminix watch --daemonize
+function update_adminix() {
+  rvm gemset use ruby-2.5.1@adminix
+  gem install adminix
 }
 
-function run_rails () {
-  eval $(adminix env)
+function run () {
+  eval $(/usr/local/rvm/gems/ruby-2.5.1@adminix/wrappers/adminix env)
   
   git clone $GIT_REPO /tmp/repo
   rm -rf $APP_PATH/*
@@ -14,6 +14,9 @@ function run_rails () {
   rm -rf /tmp/repo
 
   cd $APP_PATH
+
+  rm /tmp/adminix.pid
+  /usr/local/rvm/gems/ruby-2.5.1@adminix/wrappers/adminix watch --daemonize
  
   file=run.sh
   if [ -f "$file" ]
@@ -21,24 +24,21 @@ function run_rails () {
     chmod a+x adminix_run.sh
     ./adminix_run.sh
   else
+    gem install tzinfo-data
     bundle install
     bundle exec rake assets:precompile
     exec bundle exec rails server -b 0.0.0.0
   fi
 }
 
-function run () {
-  run_watcher
-  run_rails
-}
-
 ACTION="${1:-start}"
 
 if [ "$ACTION" = "start" ]; then
-  echo "Running application"
+  echo "Running application..."
   source "/usr/local/rvm/scripts/rvm"
   source $NVM_DIR/nvm.sh
 
+  update_adminix
   run
 else
   echo "Running command"

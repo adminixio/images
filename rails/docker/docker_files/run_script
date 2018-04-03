@@ -1,0 +1,21 @@
+#!/bin/bash
+
+echo "Connecting Ruby..."
+source "/usr/local/rvm/scripts/rvm"
+echo "\e[32mok"
+
+echo "Connecting Node.js..."
+source $NVM_DIR/nvm.sh
+echo "\e[32mok"
+
+echo "Syncing remote variables..."
+eval $(/usr/local/rvm/gems/ruby-2.5.1@adminix/wrappers/adminix env)
+echo "\e[32mok"
+
+echo "Changing application folder..."
+cd $APP_PATH
+echo "\e[32mok"
+
+echo "Executing script..."
+$@
+echo "\e[32mok"
