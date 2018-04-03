@@ -1,0 +1,46 @@
+#!/bin/bash
+
+function run_watcher () {
+  rm /tmp/adminix.pid
+  adminix watch --daemonize
+}
+
+function run_rails () {
+  eval $(adminix env)
+  
+  git clone $GIT_REPO /tmp/repo
+  rm -rf $APP_PATH/*
+  yes | cp -a /tmp/repo/. $APP_PATH
+  rm -rf /tmp/repo
+
+  cd $APP_PATH
+ 
+  file=run.sh
+  if [ -f "$file" ]
+  then
+    chmod a+x adminix_run.sh
+    ./adminix_run.sh
+  else
+    bundle install
+    bundle exec rake assets:precompile
+    exec bundle exec rails server -b 0.0.0.0
+  fi
+}
+
+function run () {
+  run_watcher
+  run_rails
+}
+
+ACTION="${1:-start}"
+
+if [ "$ACTION" = "start" ]; then
+  echo "Running application"
+  source "/usr/local/rvm/scripts/rvm"
+  source $NVM_DIR/nvm.sh
+
+  run
+else
+  echo "Running command"
+  exec "$@"
+fi
