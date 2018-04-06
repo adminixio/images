@@ -1,12 +1,11 @@
 {
-  "mode": "docker",
+  "mode": "classic",
   "working_dir": "/root/application/current",
   "image": "nodejs",
   "scripts": {
+    "process_stop": "pkill -f node",
+    "process_start": "/start",
     "run_script": "/root/.config/adminix/scripts/run_script"
   },
-  "watch_logs": [
-    "/root/application/current/log/production.log",
-    "/root/application/current/log/development.log"
-  ]
+  "watch_logs": []
 }
