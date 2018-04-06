@@ -32,6 +32,10 @@ function run () {
   source $NVM_DIR/nvm.sh
   echo "OK"
 
+  echo "Generating config"
+    /root/.config/adminix/scripts/generate_config
+  echo "OK"
+
   echo "Launching Adminix process..."
   rm /tmp/adminix.pid
   /usr/local/rvm/gems/ruby-2.5.1@adminix/wrappers/adminix watch --daemonize

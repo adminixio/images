@@ -53,13 +53,17 @@ RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.1/install.sh
 
 # Setup Adminix files
 RUN mkdir -p /root/.config/adminix/scripts
-COPY docker_files/config /root/.config/adminix/config
+#COPY docker_files/config /root/.config/adminix/config
 COPY docker_files/run_app /root/.config/adminix/scripts/run_app
 RUN chmod +x /root/.config/adminix/scripts/run_app
 COPY docker_files/run_script /root/.config/adminix/scripts/run_script
 RUN chmod +x /root/.config/adminix/scripts/run_script
 COPY docker_files/start /start
 RUN chmod +x /start
+#COPY docker_files/stop /stop
+#RUN chmod +x /stop
+COPY docker_files/generate_config /root/.config/adminix/scripts/generate_config
+RUN chmod +x /root/.config/adminix/scripts/generate_config
 
 # Creating app path
 RUN mkdir -p $APP_PATH
