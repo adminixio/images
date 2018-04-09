@@ -30,7 +30,7 @@ server {
     listen 80;
     server_name default;
 
-    root /var/www/html
+    root /var/www/html;
 
     try_files \$uri/index.html \$uri @app;
 
