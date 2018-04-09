@@ -1,0 +1,16 @@
+{
+  "mode": "classic",
+  "working_dir": "<%= ENV['APP_PATH'] %>",
+  "image": "rails",
+  "scripts": {
+    "watcher_start": "sudo systemctl start adminix.service",
+    "watcher_stop": "sudo systemctl stop adminix.service",
+    "process_start": "sudo systemctl start adminix_process.service",
+    "process_stop": "sudo systemctl stop adminix_process.service",
+    "run_script": "<%= ENV['APP_PATH'] %>/run_script"
+  },
+  "watch_logs": [
+    "<%= ENV['APP_PATH'] %>/log/production.log",
+    "<%= ENV['APP_PATH'] %>/log/development.log"
+  ]
+}

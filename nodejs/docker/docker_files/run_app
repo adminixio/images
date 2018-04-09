@@ -1,0 +1,64 @@
+#!/bin/bash
+
+function update_adminix() {
+  rvm gemset use ruby-2.5.1@adminix
+  gem install adminix
+}
+
+function run () {
+  echo "Setting up environment variables..."
+  eval $(/usr/local/rvm/gems/ruby-2.5.1@adminix/wrappers/adminix env)
+  echo "OK"
+
+  echo "Clonning Git repository..."
+  git clone $GIT_REPO -b $GIT_BRANCH /tmp/repo
+  echo "cloned repo"
+  rm -rf $APP_PATH/*
+  echo $APP_PATH
+  echo "removed old files"
+  yes | cp -a /tmp/repo/. $APP_PATH
+  echo "copied files from tmp to current"
+  rm -rf /tmp/repo
+  echo "remove tmp folder"
+  echo "OK"
+
+  echo "Changing project folder..."
+  cd $APP_PATH
+  echo "OK"
+
+  echo "Connecting Ruby and Node.js..."
+  source "/usr/local/rvm/scripts/rvm"
+  rvm gemset use default
+  source $NVM_DIR/nvm.sh
+  echo "OK"
+
+  echo "Generating config"
+    /root/.config/adminix/scripts/generate_config
+  echo "OK"
+
+  echo "Launching Adminix process..."
+  rm /tmp/adminix.pid
+  /usr/local/rvm/gems/ruby-2.5.1@adminix/wrappers/adminix watch --daemonize
+  echo "OK"
+
+  echo "Launching app..."
+
+  if [ -f "package.json" ]; then
+    yarn install
+  fi
+
+  exec node $NODE_ENTRYPOINT
+}
+
+ACTION="${1:-start}"
+
+if [ "$ACTION" = "start" ]; then
+  echo "{\"secret_key\":\"$ADMINIX_SECRET_KEY\",\"service_id\":\"$ADMINIX_SERVICE_ID\"}" > ~/.config/adminix/credentials
+
+  update_adminix
+  run
+else
+  echo "Running command"
+  exec "$@"
+fi
+  

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+function run () {
+  clone_repo
+  prepare
+  run_composer_install
+  run_watcher
+  run_apache2
+}
+
+function clone_repo () {
+  echo "Cloning Git repository $GIT_REPO..."
+
+  git clone $GIT_REPO /tmp/repo
+  rm -rf $APP_PATH/*
+  yes | cp -a /tmp/repo/. $APP_PATH
+  rm -rf /tmp/repo
+}
+
+function run_watcher () {
+  echo "Running Adminix watcher process"
+  
+  rm /tmp/adminix.pid
+  adminix watch --daemonize
+}
+
+function prepare () {
+  echo "Syncing application settings"
+  eval $(adminix env)
+}
+
+function run_composer_install () {
+  echo "Running composer install"
+}
+
+function run_apache2 () {
+  echo "Running Apache2 server"
+  ./docker-php-entrypoint apache2-foreground
+}
+
+ACTION="${1:-start}"
+
+if [ "$ACTION" = "start" ]; then
+  echo "Running application"
+  run
+else
+  echo "Running command"
+  exec "$@"
+fi

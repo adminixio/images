@@ -1,0 +1,15 @@
+#!/bin/bash
+
+HOST=https://adminix.herokuapp.com/api
+WEBSOCKET_HOST=ws://adminix.herokuapp.com/websocket
+IMAGE=adminixio/php:latest
+CMD=/bin/bash
+
+docker run \
+  -e ADMINIX_SECRET_KEY=$SECRET_KEY \
+  -e ADMINIX_SERVICE_ID=$SERVICE_ID \
+  -e ADMINIX_HOST=$HOST \
+  -e ADMINIX_WEBSOCKET_HOST=$WEBSOCKET_HOST \
+  --rm -it \
+  $IMAGE \
+  $CMD
