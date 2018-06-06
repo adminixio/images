@@ -1,0 +1,12 @@
+{
+	"mode": "docker",
+	"working_dir": "/root/application/current",
+	"image": "rails",
+	"scripts": {
+	   "run_script": "/root/.config/adminix/scripts/run_script"
+	},
+	"watch_logs": [
+		"/root/application/current/log/production.log",
+		"/root/application/current/log/development.log"
+	]
+}
