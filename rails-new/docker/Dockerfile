@@ -8,6 +8,8 @@ ENV RUBY_VERSION_2 2.3.7
 ENV RUBY_VERSION_3 2.2.7
 ENV NODE_VERSION 6.10.0
 ENV APP_PATH /root/application/current
+ENV TMP_PATH /root/application/tmp
+ENV LEGACY_PATH /root/application/legacy
 
 ENV RUN_COMMAND bundle exec rails server
 ENV RAILS_ENV production
@@ -49,9 +51,8 @@ RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
     && apt-get update && apt-get install -y --no-install-recommends yarn
 
 # Setup Scripting files
-RUN mkdir -p /root/scripts
-COPY /start_app /root/scripts/start_app
-RUN chmod +x /root/scripts/start_app
+COPY /start /root/start
+RUN chmod +x /root/start
 
 # Creating app path
 RUN mkdir -p $APP_PATH
@@ -59,4 +60,4 @@ WORKDIR $APP_PATH
 
 EXPOSE 3000
 
-ENTRYPOINT ["/root/scripts/start_app"]
+ENTRYPOINT ["/root/start"]
