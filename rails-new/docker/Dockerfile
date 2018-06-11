@@ -13,6 +13,7 @@ ENV RUN_COMMAND bundle exec rails server
 ENV RAILS_ENV production
 ENV GIT_REPO https://github.com/adminixio/rails-example-application.git
 ENV GIT_BRANCH master
+ENV SECRET_KEY_BASE 123
 
 # Installing and updating deps
 RUN apt-get update \
