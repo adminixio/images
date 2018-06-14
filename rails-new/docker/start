@@ -23,12 +23,16 @@ echo "OK"
 
 echo "Updating folders..."
 rm -rf $LEGACY_PATH
-yes | cp -a $APP_PATH $LEGACY_PATH
+cp -a $APP_PATH $LEGACY_PATH
 rm -rf $APP_PATH/*
-yes | cp -a $TMP_PATH $APP_PATH
+yes | cp -a $TMP_PATH/. $APP_PATH
 rm -rf $TMP_PATH
+echo "OK"
+
+echo "Changing folder..."
+cd $APP_PATH
 echo "OK"
 
 echo "Launching app..."
 exec bundle exec rails server -b 0.0.0.0 -p $PORT
-echo "OK"
+
