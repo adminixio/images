@@ -60,7 +60,7 @@ RUN chmod +x /root/start
 
 # Creating app path
 RUN mkdir -p $APP_PATH
-WORKDIR $APP_PATH
+WORKDIR /root
 
 EXPOSE 3000
 
